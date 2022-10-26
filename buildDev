@@ -1,0 +1,72 @@
+#!/bin/bash
+#
+# DESCRIPTION
+#	Invoke developer build
+#
+# USAGE:
+#	Steps to invoke this script.
+#		export NLEXTERNALDIR=<path>
+#		export BUILD_NUMBER=<#>
+#		source setEnv
+#		./buildDev
+#
+# HUDSON BUILD:
+#	cd $WORKSPACE
+#	export NLEXTERNALDIR=c:/hudson/jobs/source_main_external/workspace
+#	source setEnv
+#	./buildDev
+#
+# DEBUG:
+#	To debug ANT problems, add -v option to an ANT command. For example:
+#		$ANT -v -f scripts/build_xlib.xml
+
+
+
+#
+# Compile
+#
+export ARGS1=$1
+export NLEXTERNALDIR=D:/Perforce/sgdev_ARIDE/main/external/
+
+export BUILD_NUMBER=1001
+
+source ./setEnv --nomapsdrive
+
+export JAVA_HOME=$NLEXTERNALDIR/j2sdk/jdk1.6.0_18
+export ANT_HOME=$NLEXTERNALDIR/apache-ant/apache-ant-1.7.0
+
+ANT=$ANT_HOME/bin/ant
+
+LOG_FILE=buildDev.log
+
+(
+set -x
+# Prepare environment
+./configure --type=dev || exit $?
+source build.config
+
+# Compile code and build installers
+export ANT_OPTS="-Xmx1024M -XX:PermSize=128m -XX:MaxPermSize=512m"
+export ANT_ARGS="-Dnlbuildroot=$NLBUILDROOT -Dnlexternaldir=$NLEXTERNALDIR -Dversion_str=$VERSION_STR -Dversion_build_short=$VERSION_BUILD_SHORT -Dbuild_date_long=$BUILD_DATE_LONG"
+
+
+
+if [ "$ARGS1" == "--makexlib" ]; then
+	$ANT -f scripts/build_xlib.xml || exit $?
+	exit 0
+fi
+
+#
+# Check for errors
+#
+if [ ! -d ./xlib ]; then
+	echo "### ERROR: Missing xlib directory ./xlib"
+	exit 1
+fi
+
+$ANT -f scripts/build_compile.xml || exit $?
+#scripts/checkBuildLog.pl $LOG_FILE || exit $?
+set +x
+) 2>&1 | tee $LOG_FILE
+
+exit ${PIPESTATUS[0]}
